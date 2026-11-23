@@ -22,6 +22,7 @@ public class AgendamentoEntity {
     private String servico;
     private String profissional;
     private LocalDateTime dataHoraAgendamento;
+    private Integer duracaoMinutos = 60; // 30 ou 60
     private String cliente;
     private String telefoneCliente;
     private LocalDateTime dataInsercao = LocalDateTime.now(); // Pega a data
