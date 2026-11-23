@@ -9,11 +9,12 @@ public record AgendamentoResponse(
         String servico,
         String profissional,
         LocalDateTime dataHoraAgendamento,
+        Integer duracaoMinutos,
         String cliente,
         String telefoneCliente) {
 
     public static AgendamentoResponse de(AgendamentoEntity e) {
         return new AgendamentoResponse(e.getId(), e.getServico(), e.getProfissional(),
-                e.getDataHoraAgendamento(), e.getCliente(), e.getTelefoneCliente());
+                e.getDataHoraAgendamento(), e.getDuracaoMinutos(), e.getCliente(), e.getTelefoneCliente());
     }
 }
