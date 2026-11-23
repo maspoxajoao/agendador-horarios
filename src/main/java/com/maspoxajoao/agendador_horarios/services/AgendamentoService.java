@@ -1,61 +1,82 @@
 package com.maspoxajoao.agendador_horarios.services;
 
+import com.maspoxajoao.agendador_horarios.dto.AgendamentoRequest;
+import com.maspoxajoao.agendador_horarios.exception.AgendamentoNaoEncontradoException;
+import com.maspoxajoao.agendador_horarios.exception.HorarioIndisponivelException;
 import com.maspoxajoao.agendador_horarios.infrastructure.entity.AgendamentoEntity;
 import com.maspoxajoao.agendador_horarios.infrastructure.repository.AgendamentoRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 
 @Service
-@RequiredArgsConstructor //Injeção de dependencia
+@RequiredArgsConstructor // Injecao de dependencia por construtor
 public class AgendamentoService {
+
+    // Maior duracao possivel: usada para olhar para tras na busca de conflitos
+    private static final long DURACAO_MAXIMA_EM_MINUTOS = 60;
 
     private final AgendamentoRepository agendamentoRepository;
 
-    //Verifica se o horario esta disponivel e salva o agendamento
-    public AgendamentoEntity salvarAgendamento(AgendamentoEntity agendamento) {
-
-        LocalDateTime horaAgendamento = agendamento.getDataHoraAgendamento();
-        LocalDateTime horaFim = agendamento.getDataHoraAgendamento().plusHours(1);
-        AgendamentoEntity agendados = agendamentoRepository.findByServicoAndDataHoraAgendamentoBetween(agendamento.getServico(), horaAgendamento, horaFim);
-
-        if (Objects.nonNull(agendados)) {
-            throw new IllegalStateException("Horario ja esta preenchido");
-        }
+    // Cria o agendamento se o profissional estiver livre no intervalo (inicio + duracao)
+    public AgendamentoEntity salvarAgendamento(AgendamentoRequest dados) {
+        validarDisponibilidade(dados, null);
+        AgendamentoEntity agendamento = new AgendamentoEntity();
+        preencher(agendamento, dados);
         return agendamentoRepository.save(agendamento);
     }
 
-    //Deleta o Agendamento pelo horario do agendamento e pelo cliente
+    // Remove o agendamento pelo id
     public void deletarAgendamento(Long id) {
         if (!agendamentoRepository.existsById(id)) {
-            throw new RuntimeException("Não foi possível deletar: Agendamento não encontrado com o ID: " + id);
+            throw new AgendamentoNaoEncontradoException(id);
         }
         agendamentoRepository.deleteById(id);
     }
 
-    //Busca agendamentos do dia
+    // Lista os agendamentos do dia: de 00:00 do dia ate 00:00 do dia seguinte (exclusivo)
     public List<AgendamentoEntity> buscarAgendamentosDia(LocalDate data) {
-        LocalDateTime primeiraHoraDia = data.atStartOfDay();
-        LocalDateTime horaFinal = data.atTime(23, 59, 59);
-        return agendamentoRepository.findByDataHoraAgendamentoBetween(primeiraHoraDia, horaFinal);
+        return agendamentoRepository.findByDataHoraAgendamentoGreaterThanEqualAndDataHoraAgendamentoLessThan(
+                data.atStartOfDay(), data.plusDays(1).atStartOfDay());
     }
 
-    //Subsittui o ID pelo novo id, e altera salvando as informações novas
-    public AgendamentoEntity alterarAgendamento(Long id, AgendamentoEntity novosDados) {
-        AgendamentoEntity agendaExistente = agendamentoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Agendamento não encontrado"));
-
-        // Atualiza os dados
-        agendaExistente.setCliente(novosDados.getCliente());
-        agendaExistente.setServico(novosDados.getServico());
-        agendaExistente.setDataHoraAgendamento(novosDados.getDataHoraAgendamento());
-
-        return agendamentoRepository.save(agendaExistente);
+    // Altera o agendamento, ignorando o proprio id na checagem de conflito
+    public AgendamentoEntity alterarAgendamento(Long id, AgendamentoRequest dados) {
+        AgendamentoEntity existente = agendamentoRepository.findById(id)
+                .orElseThrow(() -> new AgendamentoNaoEncontradoException(id));
+        validarDisponibilidade(dados, id);
+        preencher(existente, dados);
+        return agendamentoRepository.save(existente);
     }
 
+    // Dois atendimentos se sobrepoem quando um comeca antes de o outro terminar.
+    // Os limites sao exclusivos: 10:00-10:30 e 10:30-11:00 nao conflitam.
+    private void validarDisponibilidade(AgendamentoRequest dados, Long idIgnorado) {
+        LocalDateTime inicio = dados.dataHoraAgendamento();
+        LocalDateTime fim = inicio.plusMinutes(dados.duracaoOuPadrao());
+
+        boolean ocupado = agendamentoRepository
+                .findByProfissionalAndDataHoraAgendamentoGreaterThanAndDataHoraAgendamentoLessThan(
+                        dados.profissional(), inicio.minusMinutes(DURACAO_MAXIMA_EM_MINUTOS), fim)
+                .stream()
+                .filter(outro -> idIgnorado == null || !idIgnorado.equals(outro.getId()))
+                .anyMatch(outro -> outro.getDataHoraAgendamento()
+                        .plusMinutes(outro.getDuracaoMinutos()).isAfter(inicio));
+
+        if (ocupado) {
+            throw new HorarioIndisponivelException(dados.profissional(), inicio);
+        }
+    }
+
+    private void preencher(AgendamentoEntity agendamento, AgendamentoRequest dados) {
+        agendamento.setServico(dados.servico());
+        agendamento.setProfissional(dados.profissional());
+        agendamento.setDataHoraAgendamento(dados.dataHoraAgendamento());
+        agendamento.setDuracaoMinutos(dados.duracaoOuPadrao());
+        agendamento.setCliente(dados.cliente());
+        agendamento.setTelefoneCliente(dados.telefoneCliente());
+    }
 }

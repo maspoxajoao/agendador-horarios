@@ -1,7 +1,9 @@
 package com.maspoxajoao.agendador_horarios.controller;
 
-import com.maspoxajoao.agendador_horarios.infrastructure.entity.AgendamentoEntity;
+import com.maspoxajoao.agendador_horarios.dto.AgendamentoRequest;
+import com.maspoxajoao.agendador_horarios.dto.AgendamentoResponse;
 import com.maspoxajoao.agendador_horarios.services.AgendamentoService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -19,23 +21,27 @@ public class AgendamentoController {
     private final AgendamentoService agendamentoService;
 
     @PostMapping
-    public ResponseEntity<AgendamentoEntity> salvar(@RequestBody AgendamentoEntity agendamento) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(agendamentoService.salvarAgendamento(agendamento));
+    public ResponseEntity<AgendamentoResponse> salvar(@Valid @RequestBody AgendamentoRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(AgendamentoResponse.de(agendamentoService.salvarAgendamento(request)));
     }
 
     @GetMapping
-    public ResponseEntity<List<AgendamentoEntity>> buscarDoDia(
+    public ResponseEntity<List<AgendamentoResponse>> buscarDoDia(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
-        return ResponseEntity.ok(agendamentoService.buscarAgendamentosDia(data));
+        return ResponseEntity.ok(agendamentoService.buscarAgendamentosDia(data).stream()
+                .map(AgendamentoResponse::de)
+                .toList());
     }
+
     @PutMapping("/{id}")
-    public ResponseEntity<AgendamentoEntity> alterarAgendamentos(@PathVariable Long id, @RequestBody AgendamentoEntity agendamento) {
-        // Chamando o service de verdade
-        return ResponseEntity.ok(agendamentoService.alterarAgendamento(id, agendamento));
+    public ResponseEntity<AgendamentoResponse> alterar(@PathVariable Long id,
+                                                       @Valid @RequestBody AgendamentoRequest request) {
+        return ResponseEntity.ok(AgendamentoResponse.de(agendamentoService.alterarAgendamento(id, request)));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletarAgendamento(@PathVariable Long id) {
+    public ResponseEntity<Void> deletar(@PathVariable Long id) {
         agendamentoService.deletarAgendamento(id);
         return ResponseEntity.noContent().build();
     }
