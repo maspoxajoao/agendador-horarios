@@ -12,11 +12,8 @@ public interface AgendamentoRepository extends JpaRepository<AgendamentoEntity, 
     List<AgendamentoEntity> findByDataHoraAgendamentoGreaterThanEqualAndDataHoraAgendamentoLessThan(
             LocalDateTime inicio, LocalDateTime fim);
 
-    // Existe agendamento do profissional estritamente entre depoisDe e antesDe?
-    boolean existsByProfissionalAndDataHoraAgendamentoGreaterThanAndDataHoraAgendamentoLessThan(
+    // Agendamentos do profissional que comecam estritamente entre depoisDe e antesDe.
+    // O service filtra os que de fato se sobrepoem, considerando a duracao de cada um.
+    List<AgendamentoEntity> findByProfissionalAndDataHoraAgendamentoGreaterThanAndDataHoraAgendamentoLessThan(
             String profissional, LocalDateTime depoisDe, LocalDateTime antesDe);
-
-    // Mesma consulta, ignorando um id (usada na alteracao para nao conflitar consigo mesmo)
-    boolean existsByProfissionalAndDataHoraAgendamentoGreaterThanAndDataHoraAgendamentoLessThanAndIdNot(
-            String profissional, LocalDateTime depoisDe, LocalDateTime antesDe, Long id);
 }
