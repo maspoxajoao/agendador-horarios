@@ -1,20 +1,22 @@
 package com.maspoxajoao.agendador_horarios.infrastructure.repository;
 
 import com.maspoxajoao.agendador_horarios.infrastructure.entity.AgendamentoEntity;
-import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public interface AgendamentoRepository extends JpaRepository<AgendamentoEntity, Long> {
-    AgendamentoEntity findByServicoAndDataHoraAgendamentoBetween(String servico, LocalDateTime dataHoraInicio,
-                                                                 LocalDateTime dataHoraFinal);
 
-    @Transactional
-    void deleteByDataHoraAgendamentoAndCliente(LocalDateTime dataHoraAgendamento, String cliente);
+    // Agendamentos de um intervalo [inicio, fim): inclui o inicio e exclui o fim
+    List<AgendamentoEntity> findByDataHoraAgendamentoGreaterThanEqualAndDataHoraAgendamentoLessThan(
+            LocalDateTime inicio, LocalDateTime fim);
 
-    List<AgendamentoEntity> findByDataHoraAgendamentoBetween(LocalDateTime dataHoraInicial, LocalDateTime dataHoraFinal);
+    // Existe agendamento do profissional estritamente entre depoisDe e antesDe?
+    boolean existsByProfissionalAndDataHoraAgendamentoGreaterThanAndDataHoraAgendamentoLessThan(
+            String profissional, LocalDateTime depoisDe, LocalDateTime antesDe);
 
-    AgendamentoEntity findByDataHoraAgendamentoAndCliente(LocalDateTime dataHoraAgendamento, String cliente);
+    // Mesma consulta, ignorando um id (usada na alteracao para nao conflitar consigo mesmo)
+    boolean existsByProfissionalAndDataHoraAgendamentoGreaterThanAndDataHoraAgendamentoLessThanAndIdNot(
+            String profissional, LocalDateTime depoisDe, LocalDateTime antesDe, Long id);
 }
